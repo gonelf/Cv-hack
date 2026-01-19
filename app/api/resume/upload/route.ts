@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
-import pdf from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 import { parseResumeWithLLM } from '@/lib/llm';
 
 export async function POST(request: NextRequest) {
@@ -28,8 +28,10 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     // Parse PDF
-    const pdfData = await pdf(buffer);
-    const resumeText = pdfData.text;
+    const parser = new PDFParse({ data: buffer });
+    const textResult = await parser.getText();
+    const resumeText = textResult.text;
+    await parser.destroy();
 
     if (!resumeText || resumeText.trim().length === 0) {
       return NextResponse.json(
