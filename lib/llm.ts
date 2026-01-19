@@ -1,10 +1,13 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+function getGroqClient() {
+  return new Groq({
+    apiKey: process.env.GROQ_API_KEY,
+  });
+}
 
 export async function parseResumeWithLLM(resumeText: string) {
+  const groq = getGroqClient();
   const completion = await groq.chat.completions.create({
     messages: [
       {
@@ -55,6 +58,7 @@ export async function analyzeJobAndTailorResume(
   resumeData: any,
   jobDescription: string
 ) {
+  const groq = getGroqClient();
   const completion = await groq.chat.completions.create({
     messages: [
       {
