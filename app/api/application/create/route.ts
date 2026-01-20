@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
         ${jobTitle},
         ${companyName || null},
         ${jobDescription},
-        ${JSON.stringify(analysis.gap_analysis || {})},
-        ${JSON.stringify(analysis.tailored_resume)}
+        ${analysis.gap_analysis || {}},
+        ${analysis.tailored_resume}
       )
       RETURNING id, resume_id, job_title, company_name, job_description,
                 gap_analysis, tailored_resume, created_at

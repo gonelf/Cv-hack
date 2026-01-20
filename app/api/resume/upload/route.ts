@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Save to database
     const result = await sql`
       INSERT INTO resumes (original_filename, parsed_data)
-      VALUES (${file.name}, ${JSON.stringify(parsedData)})
+      VALUES (${file.name}, ${parsedData})
       RETURNING id, original_filename, parsed_data, created_at
     `;
 
