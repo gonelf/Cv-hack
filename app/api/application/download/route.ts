@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate PDF
-    const pdfBuffer = generateResumePDF(
+    // Generate PDF (now async with PDFKit)
+    const pdfBuffer = await generateResumePDF(
       tailoredResume,
       application.job_title,
       application.company_name
