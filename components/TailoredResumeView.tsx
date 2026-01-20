@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
+
 interface TailoredResumeViewProps {
   application: any;
 }
 
 export default function TailoredResumeView({ application }: TailoredResumeViewProps) {
   const { gap_analysis, tailored_resume, job_title, company_name } = application;
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   const handleDownload = () => {
     const resumeText = generateResumeText(tailored_resume);
@@ -16,6 +19,55 @@ export default function TailoredResumeView({ application }: TailoredResumeViewPr
     a.download = `resume-${job_title.replace(/\s+/g, '-').toLowerCase()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPDF = async () => {
+    setDownloadingPDF(true);
+    try {
+      const response = await fetch('/api/application/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          applicationId: application.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+
+      // Extract filename from Content-Disposition header or create a default one
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let fileName = `resume-${job_title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+        if (fileNameMatch) {
+          fileName = fileNameMatch[1];
+        }
+      }
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
+      alert(`Failed to download PDF: ${error.message}`);
+    } finally {
+      setDownloadingPDF(false);
+    }
   };
 
   const handleCopy = () => {
@@ -33,15 +85,22 @@ export default function TailoredResumeView({ application }: TailoredResumeViewPr
         <div className="flex gap-2">
           <button
             onClick={handleCopy}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
           >
             Copy
           </button>
           <button
             onClick={handleDownload}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
           >
-            Download
+            Download TXT
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={downloadingPDF}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+          >
+            {downloadingPDF ? 'Generating...' : 'Download PDF'}
           </button>
         </div>
       </div>

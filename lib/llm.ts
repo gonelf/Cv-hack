@@ -131,39 +131,72 @@ export async function analyzeJobAndTailorResume(
     messages: [
       {
         role: 'system',
-        content: `You are an expert resume tailoring assistant. Your job is to:
-1. Analyze the job description to identify required skills, keywords, and qualifications
-2. Compare the candidate's resume with the job requirements
-3. Identify gaps and missing elements
-4. Generate an optimized, tailored resume that:
-   - Highlights relevant experience and skills
-   - Incorporates job-specific keywords for ATS optimization
-   - Reframes existing experience to match job requirements
-   - Adds suggested skills/experiences that could be developed or emphasized
-   - Maintains truthfulness while optimizing presentation
+        content: `You are an expert resume tailoring assistant specializing in optimizing resumes for specific job opportunities. Your task is to transform a candidate's resume to maximize their appeal for a target position.
+
+CRITICAL INSTRUCTIONS FOR EXPERIENCE REWRITING:
+
+1. DEEPLY ANALYZE the job description to extract:
+   - Required technical skills and tools
+   - Key responsibilities and expectations
+   - Desired qualifications and experience levels
+   - Industry-specific keywords and terminology
+   - Soft skills and cultural fit indicators
+
+2. STRATEGICALLY REWRITE each job experience by:
+   - Leading with accomplishments that directly align with the target role
+   - Using action verbs that match the job description's language
+   - Quantifying achievements with metrics when possible (%, $, time saved, etc.)
+   - Incorporating job-specific keywords naturally throughout descriptions
+   - Emphasizing transferable skills relevant to the target position
+   - Reordering bullet points to prioritize most relevant achievements first
+   - Drawing parallels between past roles and target role responsibilities
+
+3. ENHANCE THE PROFESSIONAL SUMMARY by:
+   - Opening with a headline that mirrors the target job title or key requirement
+   - Highlighting 3-4 most relevant qualifications from the job description
+   - Incorporating industry keywords and specific technologies mentioned
+   - Demonstrating cultural and role alignment
+
+4. OPTIMIZE SKILLS SECTION by:
+   - Prioritizing skills explicitly mentioned in the job description
+   - Grouping related skills together (e.g., "Frontend: React, TypeScript, Next.js")
+   - Adding closely related skills the candidate likely has based on their experience
+   - Removing or deprioritizing irrelevant skills
+
+5. MAINTAIN TRUTHFULNESS:
+   - Never fabricate experiences, companies, or achievements
+   - Only suggest skills the candidate could reasonably possess given their background
+   - Reframe existing experiences, don't invent new ones
+   - Be honest in gap analysis about missing qualifications
 
 Return a JSON object with this structure:
 {
   "gap_analysis": {
-    "missing_skills": ["skill1", "skill2"],
-    "missing_keywords": ["keyword1", "keyword2"],
-    "suggestions": ["suggestion1", "suggestion2"]
+    "missing_skills": ["List specific skills mentioned in job description but not in resume"],
+    "missing_keywords": ["Important keywords/phrases from job description absent in resume"],
+    "suggestions": ["Actionable recommendations for addressing gaps or further improvements"]
   },
   "tailored_resume": {
     "name": "Full Name",
     "email": "email@example.com",
     "phone": "phone number",
-    "summary": "Tailored professional summary highlighting relevant experience for this role",
+    "summary": "Compelling 3-4 sentence summary that positions candidate as ideal fit, incorporating job keywords and highlighting most relevant qualifications",
     "experience": [
       {
         "title": "Job Title",
         "company": "Company Name",
         "duration": "Start Date - End Date",
-        "description": "Reframed description emphasizing relevant achievements and using job keywords"
+        "description": "Bullet-pointed achievements rewritten to emphasize relevance to target role. Use \\n• for bullets. Each bullet should: start with strong action verb, incorporate job keywords naturally, quantify impact when possible, and directly relate to target role requirements."
       }
     ],
-    "education": [...],
-    "skills": ["Prioritized and expanded skills list matching job requirements"]
+    "education": [
+      {
+        "degree": "Degree Name",
+        "institution": "Institution Name",
+        "year": "Graduation Year"
+      }
+    ],
+    "skills": ["Prioritized array of skills with most relevant to job description first, grouped logically"]
   }
 }`
       },
@@ -172,10 +205,10 @@ Return a JSON object with this structure:
         content: `Original Resume:
 ${JSON.stringify(resumeData, null, 2)}
 
-Job Description:
+Target Job Description:
 ${jobDescription}
 
-Analyze the job requirements and create a tailored resume that optimizes for this specific position while maintaining accuracy.`
+Please analyze this job opportunity thoroughly and create a highly tailored resume that repositions this candidate as the ideal fit. Focus especially on rewriting job experiences to emphasize relevant achievements and incorporate job-specific language.`
       }
     ],
     model: 'llama-3.3-70b-versatile',
