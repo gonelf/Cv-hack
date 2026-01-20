@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
-import pdf from 'pdf-parse';
-import { parseResumeWithLLM } from '@/lib/llm';
+import { parseResumeFromPDF } from '@/lib/llm';
 import { ensureDbInitialized } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
@@ -31,19 +30,11 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Parse PDF
-    const data = await pdf(buffer);
-    const resumeText = data.text;
+    // Convert buffer to base64 for Gemini
+    const base64PDF = buffer.toString('base64');
 
-    if (!resumeText || resumeText.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Could not extract text from PDF' },
-        { status: 400 }
-      );
-    }
-
-    // Parse resume with LLM
-    const parsedData = await parseResumeWithLLM(resumeText);
+    // Parse resume directly from PDF using Gemini's multimodal capabilities
+    const parsedData = await parseResumeFromPDF(base64PDF, file.type);
 
     // Save to database
     const result = await sql`
