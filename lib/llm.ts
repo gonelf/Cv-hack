@@ -1,9 +1,11 @@
-import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-function getGroqClient() {
-  return new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-  });
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set in environment variables');
+  }
+  return new GoogleGenerativeAI(apiKey);
 }
 
 /**
@@ -38,13 +40,21 @@ function parseJSONSafely(content: string): any {
   }
 }
 
+/**
+ * Parse resume from text using Gemini Flash
+ */
 export async function parseResumeWithLLM(resumeText: string) {
-  const groq = getGroqClient();
-  const completion = await groq.chat.completions.create({
-    messages: [
-      {
-        role: 'system',
-        content: `You are a resume parsing assistant. Extract structured information from resumes.
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash-exp',
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+    }
+  });
+
+  const prompt = `You are a resume parsing assistant. Extract structured information from resumes.
 Return a JSON object with the following structure:
 {
   "name": "Full Name",
@@ -69,30 +79,88 @@ Return a JSON object with the following structure:
   "skills": ["skill1", "skill2", "skill3"]
 }
 
-Extract ALL job positions and experiences from the resume, not just the most recent ones. If a field is missing, omit it or use null.`
-      },
-      {
-        role: 'user',
-        content: `Parse this resume and return structured JSON:\n\n${resumeText}`
-      }
-    ],
-    model: 'llama-3.3-70b-versatile',
-    temperature: 0.1,
-    max_tokens: 4096,
-    response_format: { type: 'json_object' }
+Extract ALL job positions and experiences from the resume, not just the most recent ones. If a field is missing, omit it or use null.
+
+Parse this resume and return structured JSON:
+
+${resumeText}`;
+
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const content = response.text();
+
+  return parseJSONSafely(content);
+}
+
+/**
+ * Parse resume from PDF file directly using Gemini Flash (multimodal)
+ */
+export async function parseResumeFromPDF(pdfBase64: string, mimeType: string = 'application/pdf') {
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash-exp',
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+    }
   });
 
-  const content = completion.choices[0]?.message?.content || '{}';
+  const prompt = `You are a resume parsing assistant. Extract structured information from this resume PDF.
+Return a JSON object with the following structure:
+{
+  "name": "Full Name",
+  "email": "email@example.com",
+  "phone": "phone number",
+  "summary": "professional summary or objective",
+  "experience": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "duration": "Start Date - End Date",
+      "description": "Job description and achievements"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree Name",
+      "institution": "Institution Name",
+      "year": "Graduation Year"
+    }
+  ],
+  "skills": ["skill1", "skill2", "skill3"]
+}
+
+Extract ALL job positions and experiences from the resume, not just the most recent ones. If a field is missing, omit it or use null.`;
+
+  const result = await model.generateContent([
+    prompt,
+    {
+      inlineData: {
+        data: pdfBase64,
+        mimeType: mimeType,
+      },
+    },
+  ]);
+
+  const response = result.response;
+  const content = response.text();
+
   return parseJSONSafely(content);
 }
 
 export async function extractJobDetails(jobOfferText: string) {
-  const groq = getGroqClient();
-  const completion = await groq.chat.completions.create({
-    messages: [
-      {
-        role: 'system',
-        content: `You are a job offer parsing assistant. Extract structured information from job postings, job offers, or job descriptions.
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash-exp',
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+    }
+  });
+
+  const prompt = `You are a job offer parsing assistant. Extract structured information from job postings, job offers, or job descriptions.
 Return a JSON object with the following structure:
 {
   "jobTitle": "The job position title",
@@ -105,20 +173,16 @@ Guidelines:
 - Extract the company name if it's mentioned anywhere in the text
 - For jobDescription, include ALL the details: responsibilities, requirements, qualifications, benefits, etc.
 - If company name is not found, set it to an empty string
-- Be thorough in extracting the complete job description`
-      },
-      {
-        role: 'user',
-        content: `Extract the job details from this text:\n\n${jobOfferText}`
-      }
-    ],
-    model: 'llama-3.3-70b-versatile',
-    temperature: 0.1,
-    max_tokens: 2048,
-    response_format: { type: 'json_object' }
-  });
+- Be thorough in extracting the complete job description
 
-  const content = completion.choices[0]?.message?.content || '{}';
+Extract the job details from this text:
+
+${jobOfferText}`;
+
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const content = response.text();
+
   return parseJSONSafely(content);
 }
 
@@ -126,12 +190,17 @@ export async function analyzeJobAndTailorResume(
   resumeData: any,
   jobDescription: string
 ) {
-  const groq = getGroqClient();
-  const completion = await groq.chat.completions.create({
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert resume tailoring assistant specializing in optimizing resumes for specific job opportunities. Your task is to transform a candidate's resume to maximize their appeal for a target position.
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash-exp',
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+    }
+  });
+
+  const prompt = `You are an expert resume tailoring assistant specializing in optimizing resumes for specific job opportunities. Your task is to transform a candidate's resume to maximize their appeal for a target position.
 
 CRITICAL INSTRUCTIONS FOR EXPERIENCE REWRITING:
 
@@ -198,25 +267,19 @@ Return a JSON object with this structure:
     ],
     "skills": ["Prioritized array of skills with most relevant to job description first, grouped logically"]
   }
-}`
-      },
-      {
-        role: 'user',
-        content: `Original Resume:
+}
+
+Original Resume:
 ${JSON.stringify(resumeData, null, 2)}
 
 Target Job Description:
 ${jobDescription}
 
-Please analyze this job opportunity thoroughly and create a highly tailored resume that repositions this candidate as the ideal fit. Focus especially on rewriting job experiences to emphasize relevant achievements and incorporate job-specific language.`
-      }
-    ],
-    model: 'llama-3.3-70b-versatile',
-    temperature: 0.3,
-    max_tokens: 4096,
-    response_format: { type: 'json_object' }
-  });
+Please analyze this job opportunity thoroughly and create a highly tailored resume that repositions this candidate as the ideal fit. Focus especially on rewriting job experiences to emphasize relevant achievements and incorporate job-specific language.`;
 
-  const content = completion.choices[0]?.message?.content || '{}';
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const content = response.text();
+
   return parseJSONSafely(content);
 }
