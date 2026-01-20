@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { PDFParse } from 'pdf-parse';
 import { parseResumeWithLLM } from '@/lib/llm';
+import { ensureDbInitialized } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
+    // Ensure database is initialized
+    await ensureDbInitialized();
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 

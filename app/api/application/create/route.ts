@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { analyzeJobAndTailorResume } from '@/lib/llm';
+import { ensureDbInitialized } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
+    // Ensure database is initialized
+    await ensureDbInitialized();
+
     const body = await request.json();
     const { resumeId, jobTitle, companyName, jobDescription } = body;
 

@@ -1,5 +1,8 @@
 import { sql } from '@vercel/postgres';
 
+// Track if database has been initialized in this instance
+let dbInitialized = false;
+
 export async function initDb() {
   // Create resumes table
   await sql`
@@ -36,6 +39,34 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_applications_created_at
     ON applications(created_at DESC)
   `;
+
+  dbInitialized = true;
+}
+
+/**
+ * Ensures the database is initialized before performing operations.
+ * This automatically creates tables if they don't exist.
+ */
+export async function ensureDbInitialized() {
+  if (dbInitialized) {
+    return; // Already initialized in this instance
+  }
+
+  try {
+    // Try to check if the resumes table exists
+    await sql`SELECT 1 FROM resumes LIMIT 1`;
+    dbInitialized = true;
+  } catch (error: any) {
+    // If table doesn't exist (error code 42P01), initialize the database
+    if (error.code === '42P01') {
+      console.log('Database tables not found, initializing...');
+      await initDb();
+      console.log('Database initialized successfully');
+    } else {
+      // Re-throw other errors
+      throw error;
+    }
+  }
 }
 
 export interface Resume {
