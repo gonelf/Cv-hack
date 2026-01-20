@@ -35,7 +35,7 @@ export async function generateResumePDF(
   try {
     // Create a new PDFDocument
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([612, 792]); // US Letter size
+    let page = pdfDoc.addPage([612, 792]); // US Letter size
 
     // Load fonts
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -64,6 +64,14 @@ export async function generateResumePDF(
       });
     };
 
+    // Helper function to check if we need a new page
+    const checkNewPage = () => {
+      if (yPosition < 100) {
+        page = pdfDoc.addPage([612, 792]);
+        yPosition = height - margin;
+      }
+    };
+
     // Helper function to draw wrapped text
     const drawWrappedText = (
       text: string,
@@ -82,6 +90,10 @@ export async function generateResumePDF(
         const textWidth = font.widthOfTextAtSize(testLine, fontSize);
 
         if (textWidth > maxWidth && line) {
+          if (currentY < 100) {
+            page = pdfDoc.addPage([612, 792]);
+            currentY = height - margin;
+          }
           drawText(line, x, currentY, fontSize, font);
           currentY -= fontSize + 4;
           line = word;
@@ -91,6 +103,10 @@ export async function generateResumePDF(
       }
 
       if (line) {
+        if (currentY < 100) {
+          page = pdfDoc.addPage([612, 792]);
+          currentY = height - margin;
+        }
         drawText(line, x, currentY, fontSize, font);
         currentY -= fontSize + 4;
       }
@@ -158,6 +174,7 @@ export async function generateResumePDF(
 
     // Add Experience
     if (resumeData.experience && Array.isArray(resumeData.experience) && resumeData.experience.length > 0) {
+      checkNewPage();
       drawText('PROFESSIONAL EXPERIENCE', margin, yPosition, 14, boldFont);
       yPosition -= 20;
 
@@ -170,10 +187,7 @@ export async function generateResumePDF(
         if (!title && !company) continue;
 
         // Check if we need a new page
-        if (yPosition < 100) {
-          const newPage = pdfDoc.addPage([612, 792]);
-          yPosition = height - margin;
-        }
+        checkNewPage();
 
         // Job title
         if (title) {
@@ -200,12 +214,7 @@ export async function generateResumePDF(
           for (const part of descriptionParts) {
             const cleanPart = part.trim().replace(/^[•\-\*]\s*/, '');
             if (cleanPart) {
-              // Check if we need a new page
-              if (yPosition < 80) {
-                const newPage = pdfDoc.addPage([612, 792]);
-                yPosition = height - margin;
-              }
-
+              checkNewPage();
               const bulletText = '• ' + cleanPart;
               yPosition = drawWrappedText(
                 bulletText,
@@ -226,10 +235,7 @@ export async function generateResumePDF(
     // Add Education
     if (resumeData.education && Array.isArray(resumeData.education) && resumeData.education.length > 0) {
       // Check if we need a new page
-      if (yPosition < 100) {
-        const newPage = pdfDoc.addPage([612, 792]);
-        yPosition = height - margin;
-      }
+      checkNewPage();
 
       drawText('EDUCATION', margin, yPosition, 14, boldFont);
       yPosition -= 20;
@@ -243,6 +249,7 @@ export async function generateResumePDF(
         const displayTitle = degree || institution;
         if (!displayTitle) continue;
 
+        checkNewPage();
         drawText(displayTitle, margin, yPosition, 11, boldFont);
         yPosition -= 14;
 
