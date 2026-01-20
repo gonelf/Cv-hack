@@ -86,6 +86,42 @@ Extract all information available. If a field is missing, omit it or use null.`
   return parseJSONSafely(content);
 }
 
+export async function extractJobDetails(jobOfferText: string) {
+  const groq = getGroqClient();
+  const completion = await groq.chat.completions.create({
+    messages: [
+      {
+        role: 'system',
+        content: `You are a job offer parsing assistant. Extract structured information from job postings, job offers, or job descriptions.
+Return a JSON object with the following structure:
+{
+  "jobTitle": "The job position title",
+  "companyName": "The company name (if mentioned)",
+  "jobDescription": "The full job description including responsibilities, requirements, qualifications, and any other relevant details"
+}
+
+Guidelines:
+- Extract the job title from common sections like "Position:", "Role:", "Job Title:", or from the beginning of the text
+- Extract the company name if it's mentioned anywhere in the text
+- For jobDescription, include ALL the details: responsibilities, requirements, qualifications, benefits, etc.
+- If company name is not found, set it to an empty string
+- Be thorough in extracting the complete job description`
+      },
+      {
+        role: 'user',
+        content: `Extract the job details from this text:\n\n${jobOfferText}`
+      }
+    ],
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.1,
+    max_tokens: 2048,
+    response_format: { type: 'json_object' }
+  });
+
+  const content = completion.choices[0]?.message?.content || '{}';
+  return parseJSONSafely(content);
+}
+
 export async function analyzeJobAndTailorResume(
   resumeData: any,
   jobDescription: string
