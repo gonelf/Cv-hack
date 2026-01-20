@@ -30,8 +30,6 @@ export async function generateResumePDF(
   jobTitle?: string,
   companyName?: string
 ): Promise<Buffer> {
-  console.log('Generating PDF with pdf-lib, data:', JSON.stringify(resumeData, null, 2));
-
   try {
     // Create a new PDFDocument
     const pdfDoc = await PDFDocument.create();
@@ -273,8 +271,6 @@ export async function generateResumePDF(
     // Serialize the PDFDocument to bytes (a Uint8Array)
     const pdfBytes = await pdfDoc.save();
     const pdfBuffer = Buffer.from(pdfBytes);
-
-    console.log('pdf-lib generation complete, buffer size:', pdfBuffer.length);
 
     return pdfBuffer;
   } catch (error) {

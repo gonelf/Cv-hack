@@ -36,32 +36,22 @@ export async function POST(request: NextRequest) {
     }
 
     const application = result.rows[0];
-    console.log('Application data from DB:', JSON.stringify(application, null, 2));
-
     const tailoredResume = application.tailored_resume;
-    console.log('Tailored resume data:', JSON.stringify(tailoredResume, null, 2));
-    console.log('Type of tailored_resume:', typeof tailoredResume);
-    console.log('Is tailoredResume an object?', typeof tailoredResume === 'object');
-    console.log('tailoredResume.name:', tailoredResume?.name);
 
     // Validate resume data
     if (!tailoredResume || !tailoredResume.name) {
-      console.error('Invalid resume data - missing tailoredResume or name');
       return NextResponse.json(
         { error: 'Invalid resume data - tailored resume is missing or incomplete' },
         { status: 400 }
       );
     }
 
-    // Generate PDF (now async with PDFKit)
+    // Generate PDF
     const pdfBuffer = await generateResumePDF(
       tailoredResume,
       application.job_title,
       application.company_name
     );
-
-    console.log('PDF Buffer length:', pdfBuffer.length);
-    console.log('PDF Buffer first 100 bytes:', pdfBuffer.slice(0, 100).toString('hex'));
 
     // Create filename - sanitize but keep spaces, then properly encode
     const sanitizeName = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').substring(0, 50);
@@ -74,8 +64,6 @@ export async function POST(request: NextRequest) {
 
     // Convert Buffer to Uint8Array for NextResponse
     const uint8Array = new Uint8Array(pdfBuffer);
-    console.log('Uint8Array length:', uint8Array.length);
-    console.log('Generated filename:', fileName);
 
     // Return PDF as downloadable file with proper RFC 5987 encoding
     return new NextResponse(uint8Array, {

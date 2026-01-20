@@ -9,7 +9,6 @@ interface TailoredResumeViewProps {
 export default function TailoredResumeView({ application }: TailoredResumeViewProps) {
   const { gap_analysis, tailored_resume, job_title, company_name } = application;
   const [downloadingPDF, setDownloadingPDF] = useState(false);
-  const [showDebug, setShowDebug] = useState(true);
 
   const handleDownload = () => {
     const resumeText = generateResumeText(tailored_resume);
@@ -24,12 +23,6 @@ export default function TailoredResumeView({ application }: TailoredResumeViewPr
 
   const handleDownloadPDF = async () => {
     setDownloadingPDF(true);
-    console.log('=== PDF DOWNLOAD DEBUG ===');
-    console.log('Application ID:', application.id);
-    console.log('Tailored Resume:', tailored_resume);
-    console.log('Job Title:', job_title);
-    console.log('Company Name:', company_name);
-    console.log('Full Application Object:', application);
 
     try {
       const response = await fetch('/api/application/download', {
@@ -42,18 +35,13 @@ export default function TailoredResumeView({ application }: TailoredResumeViewPr
         }),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Error response:', errorData);
         throw new Error(errorData.error || 'Failed to generate PDF');
       }
 
       // Get the PDF blob
       const blob = await response.blob();
-      console.log('PDF Blob size:', blob.size, 'bytes');
 
       // Extract filename from Content-Disposition header or create a default one
       const contentDisposition = response.headers.get('Content-Disposition');
@@ -116,69 +104,6 @@ export default function TailoredResumeView({ application }: TailoredResumeViewPr
             {downloadingPDF ? 'Generating...' : 'Download PDF'}
           </button>
         </div>
-      </div>
-
-      {/* DEBUG SECTION - REMOVE LATER */}
-      <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-500 dark:border-purple-700 rounded-lg p-4">
-        <div className="flex justify-between items-center mb-2">
-          <h4 className="font-bold text-purple-900 dark:text-purple-200 text-lg">
-            🔍 DEBUG INFO (Remove Later)
-          </h4>
-          <button
-            onClick={() => setShowDebug(!showDebug)}
-            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
-          >
-            {showDebug ? 'Hide' : 'Show'}
-          </button>
-        </div>
-
-        {showDebug && (
-          <div className="space-y-3 text-xs">
-            <div>
-              <p className="font-semibold text-purple-900 dark:text-purple-200">Application ID:</p>
-              <code className="block bg-purple-100 dark:bg-purple-900 p-2 rounded mt-1 text-purple-800 dark:text-purple-300">
-                {application.id || 'MISSING'}
-              </code>
-            </div>
-
-            <div>
-              <p className="font-semibold text-purple-900 dark:text-purple-200">Resume Data Summary:</p>
-              <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded mt-1 text-purple-800 dark:text-purple-300">
-                <p>• Name: {tailored_resume?.name || 'MISSING'}</p>
-                <p>• Email: {tailored_resume?.email || 'MISSING'}</p>
-                <p>• Phone: {tailored_resume?.phone || 'MISSING'}</p>
-                <p>• Summary: {tailored_resume?.summary ? `${tailored_resume.summary.substring(0, 50)}...` : 'MISSING'}</p>
-                <p>• Skills Count: {tailored_resume?.skills?.length || 0}</p>
-                <p>• Experience Count: {tailored_resume?.experience?.length || 0}</p>
-                <p>• Education Count: {tailored_resume?.education?.length || 0}</p>
-              </div>
-            </div>
-
-            <div>
-              <p className="font-semibold text-purple-900 dark:text-purple-200">Type Checks:</p>
-              <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded mt-1 text-purple-800 dark:text-purple-300">
-                <p>• typeof tailored_resume: {typeof tailored_resume}</p>
-                <p>• Is Array (skills): {Array.isArray(tailored_resume?.skills) ? 'YES' : 'NO'}</p>
-                <p>• Is Array (experience): {Array.isArray(tailored_resume?.experience) ? 'YES' : 'NO'}</p>
-                <p>• Is Array (education): {Array.isArray(tailored_resume?.education) ? 'YES' : 'NO'}</p>
-              </div>
-            </div>
-
-            <div>
-              <p className="font-semibold text-purple-900 dark:text-purple-200">Full Resume Object:</p>
-              <pre className="bg-purple-100 dark:bg-purple-900 p-2 rounded mt-1 overflow-auto max-h-60 text-purple-800 dark:text-purple-300">
-                {JSON.stringify(tailored_resume, null, 2)}
-              </pre>
-            </div>
-
-            <div>
-              <p className="font-semibold text-purple-900 dark:text-purple-200">Full Application Object:</p>
-              <pre className="bg-purple-100 dark:bg-purple-900 p-2 rounded mt-1 overflow-auto max-h-60 text-purple-800 dark:text-purple-300">
-                {JSON.stringify(application, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
