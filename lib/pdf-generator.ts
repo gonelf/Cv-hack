@@ -1,5 +1,4 @@
-import PDFDocument from 'pdfkit';
-import { Readable } from 'stream';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 interface ResumeData {
   name: string;
@@ -26,175 +25,253 @@ const safeString = (value: any): string => {
   return String(value);
 };
 
-export function generateResumePDF(resumeData: ResumeData, jobTitle?: string, companyName?: string): Promise<Buffer> {
-  console.log('Generating PDF with PDFKit, data:', JSON.stringify(resumeData, null, 2));
+export async function generateResumePDF(
+  resumeData: ResumeData,
+  jobTitle?: string,
+  companyName?: string
+): Promise<Buffer> {
+  console.log('Generating PDF with pdf-lib, data:', JSON.stringify(resumeData, null, 2));
 
-  return new Promise<Buffer>((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({
-        size: 'LETTER',
-        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+  try {
+    // Create a new PDFDocument
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([612, 792]); // US Letter size
+
+    // Load fonts
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const italicFont = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+
+    const { width, height } = page.getSize();
+    const margin = 50;
+    let yPosition = height - margin;
+
+    // Helper function to draw text
+    const drawText = (
+      text: string,
+      x: number,
+      y: number,
+      fontSize: number,
+      font: any,
+      color = rgb(0, 0, 0)
+    ) => {
+      page.drawText(text, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color,
       });
+    };
 
-      const chunks: Buffer[] = [];
+    // Helper function to draw wrapped text
+    const drawWrappedText = (
+      text: string,
+      x: number,
+      y: number,
+      fontSize: number,
+      font: any,
+      maxWidth: number
+    ): number => {
+      const words = text.split(' ');
+      let line = '';
+      let currentY = y;
 
-      doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(chunks);
-        console.log('PDFKit generation complete, buffer size:', pdfBuffer.length);
-        resolve(pdfBuffer);
-      });
-      doc.on('error', reject);
+      for (const word of words) {
+        const testLine = line + (line ? ' ' : '') + word;
+        const textWidth = font.widthOfTextAtSize(testLine, fontSize);
 
-      // Helper function to add text with wrapping
-      const addText = (text: string, options: any = {}) => {
-        const safeText = safeString(text);
-        if (!safeText) return;
-        doc.text(safeText, options);
-      };
-
-      // Add header with name
-      const name = safeString(resumeData.name);
-      if (name) {
-        doc.fontSize(24).font('Helvetica-Bold').text(name, { align: 'left' });
-        doc.moveDown(0.5);
-      }
-
-      // Add contact information
-      const email = safeString(resumeData.email);
-      const phone = safeString(resumeData.phone);
-      if (email || phone) {
-        const contactParts = [];
-        if (email) contactParts.push(email);
-        if (phone) contactParts.push(phone);
-        const contactInfo = contactParts.join(' | ');
-        doc.fontSize(10).font('Helvetica').text(contactInfo);
-        doc.moveDown(0.3);
-      }
-
-      // Add job target if available
-      if (jobTitle || companyName) {
-        const target = `Tailored for: ${safeString(jobTitle) || 'Position'}${companyName ? ` at ${safeString(companyName)}` : ''}`;
-        doc.fontSize(11).font('Helvetica-Oblique').text(target);
-        doc.moveDown(0.5);
-      }
-
-      // Add horizontal line
-      doc.moveTo(50, doc.y)
-         .lineTo(562, doc.y)
-         .stroke();
-      doc.moveDown();
-
-      // Add Professional Summary
-      const summary = safeString(resumeData.summary);
-      if (summary) {
-        doc.fontSize(14).font('Helvetica-Bold').text('PROFESSIONAL SUMMARY');
-        doc.moveDown(0.5);
-        doc.fontSize(10).font('Helvetica').text(summary, { align: 'left' });
-        doc.moveDown();
-      }
-
-      // Add Skills
-      if (resumeData.skills && Array.isArray(resumeData.skills) && resumeData.skills.length > 0) {
-        const validSkills = resumeData.skills.map(s => safeString(s)).filter(s => s.trim());
-        if (validSkills.length > 0) {
-          doc.fontSize(14).font('Helvetica-Bold').text('SKILLS');
-          doc.moveDown(0.5);
-          doc.fontSize(10).font('Helvetica').text(validSkills.join(' • '), { align: 'left' });
-          doc.moveDown();
+        if (textWidth > maxWidth && line) {
+          drawText(line, x, currentY, fontSize, font);
+          currentY -= fontSize + 4;
+          line = word;
+        } else {
+          line = testLine;
         }
       }
 
-      // Add Experience
-      if (resumeData.experience && Array.isArray(resumeData.experience) && resumeData.experience.length > 0) {
-        doc.fontSize(14).font('Helvetica-Bold').text('PROFESSIONAL EXPERIENCE');
-        doc.moveDown(0.5);
-
-        for (const exp of resumeData.experience) {
-          const title = safeString(exp.title);
-          const company = safeString(exp.company);
-          const duration = safeString(exp.duration);
-          const description = safeString(exp.description);
-
-          if (!title && !company) continue;
-
-          // Job title and duration on same line
-          if (title) {
-            doc.fontSize(12).font('Helvetica-Bold');
-            const titleWidth = doc.widthOfString(title);
-            doc.text(title, { continued: false });
-
-            // Duration (right-aligned)
-            if (duration) {
-              const currentY = doc.y - 12; // Go back up to align with title
-              doc.text(duration, 562 - doc.widthOfString(duration), currentY);
-            }
-          }
-
-          // Company
-          if (company) {
-            doc.fontSize(11).font('Helvetica-Oblique').text(company);
-          }
-
-          // Description with bullets
-          if (description) {
-            doc.fontSize(10).font('Helvetica');
-            doc.moveDown(0.3);
-
-            // Split description by newlines and bullets
-            const descriptionParts = description.split(/\n+/).filter(part => part.trim());
-
-            for (const part of descriptionParts) {
-              const cleanPart = part.trim().replace(/^[•\-\*]\s*/, '');
-              if (cleanPart) {
-                doc.text('• ' + cleanPart, { indent: 20, width: 462 });
-              }
-            }
-          }
-
-          doc.moveDown();
-        }
+      if (line) {
+        drawText(line, x, currentY, fontSize, font);
+        currentY -= fontSize + 4;
       }
 
-      // Add Education
-      if (resumeData.education && Array.isArray(resumeData.education) && resumeData.education.length > 0) {
-        doc.fontSize(14).font('Helvetica-Bold').text('EDUCATION');
-        doc.moveDown(0.5);
+      return currentY;
+    };
 
-        for (const edu of resumeData.education) {
-          const degree = safeString(edu.degree);
-          const institution = safeString(edu.institution);
-          const year = safeString(edu.year);
-
-          // If there's no degree but there's an institution, use institution as the title
-          const displayTitle = degree || institution;
-          if (!displayTitle) continue;
-
-          doc.fontSize(11).font('Helvetica-Bold').text(displayTitle);
-
-          // Only show institution line if it's not the title
-          if (institution && institution !== displayTitle) {
-            const parts = [];
-            if (institution) parts.push(institution);
-            if (year) parts.push(year);
-            const eduInfo = parts.join(' - ');
-            if (eduInfo.trim()) {
-              doc.fontSize(10).font('Helvetica').text(eduInfo);
-            }
-          } else if (year && !institution) {
-            doc.fontSize(10).font('Helvetica').text(year);
-          }
-
-          doc.moveDown(0.5);
-        }
-      }
-
-      // Finalize the PDF
-      doc.end();
-
-    } catch (error) {
-      console.error('Error in PDF generation:', error);
-      reject(error);
+    // Add header with name
+    const name = safeString(resumeData.name);
+    if (name) {
+      drawText(name, margin, yPosition, 24, boldFont);
+      yPosition -= 32;
     }
-  });
+
+    // Add contact information
+    const email = safeString(resumeData.email);
+    const phone = safeString(resumeData.phone);
+    if (email || phone) {
+      const contactParts = [];
+      if (email) contactParts.push(email);
+      if (phone) contactParts.push(phone);
+      const contactInfo = contactParts.join(' | ');
+      drawText(contactInfo, margin, yPosition, 10, regularFont);
+      yPosition -= 16;
+    }
+
+    // Add job target if available
+    if (jobTitle || companyName) {
+      const target = `Tailored for: ${safeString(jobTitle) || 'Position'}${
+        companyName ? ` at ${safeString(companyName)}` : ''
+      }`;
+      drawText(target, margin, yPosition, 11, italicFont);
+      yPosition -= 18;
+    }
+
+    // Add horizontal line
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 1,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+    yPosition -= 20;
+
+    // Add Professional Summary
+    const summary = safeString(resumeData.summary);
+    if (summary) {
+      drawText('PROFESSIONAL SUMMARY', margin, yPosition, 14, boldFont);
+      yPosition -= 20;
+      yPosition = drawWrappedText(summary, margin, yPosition, 10, regularFont, width - 2 * margin);
+      yPosition -= 12;
+    }
+
+    // Add Skills
+    if (resumeData.skills && Array.isArray(resumeData.skills) && resumeData.skills.length > 0) {
+      const validSkills = resumeData.skills.map((s) => safeString(s)).filter((s) => s.trim());
+      if (validSkills.length > 0) {
+        drawText('SKILLS', margin, yPosition, 14, boldFont);
+        yPosition -= 20;
+        const skillsText = validSkills.join(' • ');
+        yPosition = drawWrappedText(skillsText, margin, yPosition, 10, regularFont, width - 2 * margin);
+        yPosition -= 12;
+      }
+    }
+
+    // Add Experience
+    if (resumeData.experience && Array.isArray(resumeData.experience) && resumeData.experience.length > 0) {
+      drawText('PROFESSIONAL EXPERIENCE', margin, yPosition, 14, boldFont);
+      yPosition -= 20;
+
+      for (const exp of resumeData.experience) {
+        const title = safeString(exp.title);
+        const company = safeString(exp.company);
+        const duration = safeString(exp.duration);
+        const description = safeString(exp.description);
+
+        if (!title && !company) continue;
+
+        // Check if we need a new page
+        if (yPosition < 100) {
+          const newPage = pdfDoc.addPage([612, 792]);
+          yPosition = height - margin;
+        }
+
+        // Job title
+        if (title) {
+          drawText(title, margin, yPosition, 12, boldFont);
+
+          // Duration (right-aligned)
+          if (duration) {
+            const durationWidth = boldFont.widthOfTextAtSize(duration, 10);
+            drawText(duration, width - margin - durationWidth, yPosition, 10, regularFont);
+          }
+          yPosition -= 16;
+        }
+
+        // Company
+        if (company) {
+          drawText(company, margin, yPosition, 11, italicFont);
+          yPosition -= 16;
+        }
+
+        // Description with bullets
+        if (description) {
+          const descriptionParts = description.split(/\n+/).filter((part) => part.trim());
+
+          for (const part of descriptionParts) {
+            const cleanPart = part.trim().replace(/^[•\-\*]\s*/, '');
+            if (cleanPart) {
+              // Check if we need a new page
+              if (yPosition < 80) {
+                const newPage = pdfDoc.addPage([612, 792]);
+                yPosition = height - margin;
+              }
+
+              const bulletText = '• ' + cleanPart;
+              yPosition = drawWrappedText(
+                bulletText,
+                margin + 10,
+                yPosition,
+                10,
+                regularFont,
+                width - 2 * margin - 10
+              );
+            }
+          }
+        }
+
+        yPosition -= 12;
+      }
+    }
+
+    // Add Education
+    if (resumeData.education && Array.isArray(resumeData.education) && resumeData.education.length > 0) {
+      // Check if we need a new page
+      if (yPosition < 100) {
+        const newPage = pdfDoc.addPage([612, 792]);
+        yPosition = height - margin;
+      }
+
+      drawText('EDUCATION', margin, yPosition, 14, boldFont);
+      yPosition -= 20;
+
+      for (const edu of resumeData.education) {
+        const degree = safeString(edu.degree);
+        const institution = safeString(edu.institution);
+        const year = safeString(edu.year);
+
+        // If there's no degree but there's an institution, use institution as the title
+        const displayTitle = degree || institution;
+        if (!displayTitle) continue;
+
+        drawText(displayTitle, margin, yPosition, 11, boldFont);
+        yPosition -= 14;
+
+        // Only show institution line if it's not the title
+        if (institution && institution !== displayTitle) {
+          const parts = [];
+          if (institution) parts.push(institution);
+          if (year) parts.push(year);
+          const eduInfo = parts.join(' - ');
+          if (eduInfo.trim()) {
+            drawText(eduInfo, margin, yPosition, 10, regularFont);
+            yPosition -= 14;
+          }
+        } else if (year && !institution) {
+          drawText(year, margin, yPosition, 10, regularFont);
+          yPosition -= 14;
+        }
+      }
+    }
+
+    // Serialize the PDFDocument to bytes (a Uint8Array)
+    const pdfBytes = await pdfDoc.save();
+    const pdfBuffer = Buffer.from(pdfBytes);
+
+    console.log('pdf-lib generation complete, buffer size:', pdfBuffer.length);
+
+    return pdfBuffer;
+  } catch (error) {
+    console.error('Error in PDF generation:', error);
+    throw error;
+  }
 }
