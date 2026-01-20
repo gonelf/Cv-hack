@@ -69,7 +69,7 @@ Return a JSON object with the following structure:
   "skills": ["skill1", "skill2", "skill3"]
 }
 
-Extract all information available. If a field is missing, omit it or use null.`
+Extract ALL job positions and experiences from the resume, not just the most recent ones. If a field is missing, omit it or use null.`
       },
       {
         role: 'user',
@@ -78,7 +78,7 @@ Extract all information available. If a field is missing, omit it or use null.`
     ],
     model: 'llama-3.3-70b-versatile',
     temperature: 0.1,
-    max_tokens: 2048,
+    max_tokens: 4096,
     response_format: { type: 'json_object' }
   });
 
