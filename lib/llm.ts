@@ -6,6 +6,38 @@ function getGroqClient() {
   });
 }
 
+/**
+ * Safely parse JSON from LLM response, handling markdown code blocks and formatting
+ */
+function parseJSONSafely(content: string): any {
+  if (!content || content.trim() === '') {
+    return {};
+  }
+
+  let cleanedContent = content.trim();
+
+  // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+  cleanedContent = cleanedContent.replace(/^```(?:json)?\s*/i, '');
+  cleanedContent = cleanedContent.replace(/\s*```\s*$/, '');
+
+  // Trim whitespace again after removing code blocks
+  cleanedContent = cleanedContent.trim();
+
+  // Try to find JSON object boundaries if there's extra text
+  const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleanedContent = jsonMatch[0];
+  }
+
+  try {
+    return JSON.parse(cleanedContent);
+  } catch (error) {
+    console.error('JSON parsing error:', error);
+    console.error('Content that failed to parse:', cleanedContent.substring(0, 500));
+    throw new Error(`Failed to parse LLM response as JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function parseResumeWithLLM(resumeText: string) {
   const groq = getGroqClient();
   const completion = await groq.chat.completions.create({
@@ -51,7 +83,7 @@ Extract all information available. If a field is missing, omit it or use null.`
   });
 
   const content = completion.choices[0]?.message?.content || '{}';
-  return JSON.parse(content);
+  return parseJSONSafely(content);
 }
 
 export async function analyzeJobAndTailorResume(
@@ -117,5 +149,5 @@ Analyze the job requirements and create a tailored resume that optimizes for thi
   });
 
   const content = completion.choices[0]?.message?.content || '{}';
-  return JSON.parse(content);
+  return parseJSONSafely(content);
 }
