@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { ensureDbInitialized } from '@/lib/db';
 
 export async function GET() {
   try {
+    // Ensure database is initialized
+    await ensureDbInitialized();
+
     const result = await sql`
       SELECT id, original_filename, parsed_data, created_at
       FROM resumes
