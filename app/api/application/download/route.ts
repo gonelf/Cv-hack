@@ -63,20 +63,26 @@ export async function POST(request: NextRequest) {
     console.log('PDF Buffer length:', pdfBuffer.length);
     console.log('PDF Buffer first 100 bytes:', pdfBuffer.slice(0, 100).toString('hex'));
 
-    // Create filename
-    const sanitizeName = (str: string) => str.replace(/[^a-zA-Z0-9]/g, '_');
-    const fileName = `${sanitizeName(tailoredResume.name)}_${sanitizeName(application.job_title || 'Resume')}.pdf`;
+    // Create filename - sanitize but keep spaces, then properly encode
+    const sanitizeName = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').substring(0, 50);
+    const cleanName = sanitizeName(tailoredResume.name);
+    const cleanJobTitle = sanitizeName(application.job_title || 'Resume');
+    const fileName = `${cleanName}_${cleanJobTitle}.pdf`;
+
+    // Properly encode filename for Content-Disposition header (RFC 5987)
+    const encodedFileName = encodeURIComponent(fileName);
 
     // Convert Buffer to Uint8Array for NextResponse
     const uint8Array = new Uint8Array(pdfBuffer);
     console.log('Uint8Array length:', uint8Array.length);
+    console.log('Generated filename:', fileName);
 
-    // Return PDF as downloadable file
+    // Return PDF as downloadable file with proper RFC 5987 encoding
     return new NextResponse(uint8Array, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
         'Content-Length': pdfBuffer.length.toString(),
       },
     });
